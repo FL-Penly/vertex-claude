@@ -73,19 +73,7 @@ Also make sure you have done these (skip if already done):
 - Enable Claude models at: https://console.cloud.google.com/vertex-ai/publishers/anthropic
 ```
 
-### 1.6 Persist environment variables
-
-Add the GCP project config to the user's shell profile so the gateway always has access. Check which shell profile exists and append only if not already present:
-
-```bash
-SHELL_RC="$HOME/.zshrc"
-[ -f "$SHELL_RC" ] || SHELL_RC="$HOME/.bashrc"
-
-grep -q 'GOOGLE_CLOUD_PROJECT' "$SHELL_RC" 2>/dev/null || echo 'export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>"' >> "$SHELL_RC"
-grep -q 'VERTEX_LOCATION' "$SHELL_RC" 2>/dev/null || echo 'export VERTEX_LOCATION="<user-provided-region-or-us-east5>"' >> "$SHELL_RC"
-```
-
-### 1.7 Start the gateway and activate the plugin
+### 1.6 Start the gateway and activate the plugin
 
 ```bash
 export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>" && export VERTEX_LOCATION="<user-provided-region-or-us-east5>" && openclaw gateway restart
@@ -101,6 +89,10 @@ If successful, tell the user:
 
 ```
 ✅ Done! Switch to a Vertex Claude model with: /model vc-sonnet
+
+To avoid setting environment variables every time, you can add these lines to your ~/.zshrc (or ~/.bashrc):
+  export GOOGLE_CLOUD_PROJECT="<project-id>"
+  export VERTEX_LOCATION="<region>"
 ```
 
 ---
