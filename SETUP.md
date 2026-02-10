@@ -1,71 +1,51 @@
 # AI Setup Guide — openclaw-vertex-claude
 
-> This document is designed for AI coding assistants (Claude Code, OpenClaw, etc.) to follow automatically. If you are an AI assistant, execute the steps below in order. If any step fails, stop and report the error.
+> **For AI assistants**: Execute Phase 1 fully — it requires no human input. Then present Phase 2 to the user as a checklist of manual steps. Do NOT proceed to Phase 3 until the user confirms Phase 2 is done.
 
 ## What this plugin does
 
-Adds Claude model support (Sonnet, Opus) to OpenClaw via Google Cloud Vertex AI. It runs a local proxy that translates Anthropic Messages API calls into Vertex AI rawPredict requests.
+Adds Claude model support (Sonnet, Opus) to OpenClaw via Google Cloud Vertex AI. It runs a local proxy (`127.0.0.1:18832`) that translates Anthropic Messages API calls into Vertex AI rawPredict requests.
 
-## Step 1: Check prerequisites
+---
 
-Run these checks. ALL must pass before proceeding:
+## Phase 1: Automated setup (AI executes this)
 
-```bash
-# OpenClaw must be installed (>= 2026.2.2)
-openclaw --version
+AI: run every step below. If any step fails, stop and report the error.
 
-# gcloud CLI must be installed
-gcloud --version
-
-# Node.js >= 20
-node --version
-
-# GCP project must be set
-echo $GOOGLE_CLOUD_PROJECT
-```
-
-If `GOOGLE_CLOUD_PROJECT` is empty, ask the user for their GCP project ID, then:
+### 1.1 Check prerequisites
 
 ```bash
-# Add to shell profile (~/.zshrc or ~/.bashrc)
-echo 'export GOOGLE_CLOUD_PROJECT="<project-id>"' >> ~/.zshrc
-source ~/.zshrc
+# ALL must pass
+openclaw --version   # >= 2026.2.2
+gcloud --version     # any version
+node --version       # >= 20
 ```
 
-Optionally set `VERTEX_LOCATION` (defaults to `us-east5`):
+If any command is missing, stop and tell the user what to install.
 
-```bash
-echo 'export VERTEX_LOCATION="us-east5"' >> ~/.zshrc
-source ~/.zshrc
-```
+### 1.2 Install the plugin
 
-## Step 2: Ensure GCP authentication
-
-```bash
-gcloud auth application-default login
-```
-
-If already authenticated, this can be skipped. Verify with:
-
-```bash
-gcloud auth application-default print-access-token > /dev/null 2>&1 && echo "OK" || echo "NEED LOGIN"
-```
-
-## Step 3: Install the plugin
+Try npm first:
 
 ```bash
 openclaw plugins install @fl-penly/vertex-claude
 ```
 
-If install fails (e.g. not yet published to npm), install from source:
+If that fails (not yet published), install from source:
 
 ```bash
-git clone https://github.com/FL-Penly/vertex-claude.git ~/.openclaw/extensions/vertex-claude
-cd ~/.openclaw/extensions/vertex-claude
-npm install --production
+# Clone only if not already present
+if [ ! -d ~/.openclaw/extensions/vertex-claude ]; then
+  git clone https://github.com/FL-Penly/vertex-claude.git ~/.openclaw/extensions/vertex-claude
+fi
+cd ~/.openclaw/extensions/vertex-claude && npm install --production
 ```
 
-Then enable manually by adding to `~/.openclaw/openclaw.json` under `plugins.entries`:
+### 1.3 Enable plugin in openclaw.json
+
+Read `~/.openclaw/openclaw.json`, merge the plugin entry, and write back. Do NOT overwrite existing config.
+
+The final JSON must contain (at minimum) this structure merged with whatever already exists:
 
 ```json
 {
@@ -79,55 +59,130 @@ Then enable manually by adding to `~/.openclaw/openclaw.json` under `plugins.ent
 }
 ```
 
-## Step 4: Configure model aliases (optional but recommended)
-
-Add model aliases to `~/.openclaw/openclaw.json` under `agents.defaults.models`:
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "models": {
-        "vertex-claude/claude-sonnet-4-5": { "alias": "vc-sonnet" },
-        "vertex-claude/claude-opus-4-5": { "alias": "vc-opus" },
-        "vertex-claude/claude-opus-4-6": { "alias": "vc-opus46" }
-      }
-    }
-  }
-}
-```
-
-IMPORTANT: Merge these into the existing JSON structure. Do NOT overwrite the file. Use `jq` or read-modify-write.
-
-## Step 5: Restart the gateway
+Use read-modify-write. Example with `jq`:
 
 ```bash
+CONFIG=~/.openclaw/openclaw.json
+
+# Create file if missing
+[ -f "$CONFIG" ] || echo '{}' > "$CONFIG"
+
+# Merge plugin entry
+jq '.plugins.entries["vertex-claude"] = {"enabled": true}' "$CONFIG" > "$CONFIG.tmp" \
+  && mv "$CONFIG.tmp" "$CONFIG"
+```
+
+### 1.4 Configure model aliases
+
+Merge model aliases into the same `~/.openclaw/openclaw.json`. Again, read-modify-write — do NOT overwrite.
+
+```bash
+CONFIG=~/.openclaw/openclaw.json
+
+jq '
+  .agents.defaults.models["vertex-claude/claude-sonnet-4-5"] = {"alias": "vc-sonnet"} |
+  .agents.defaults.models["vertex-claude/claude-opus-4-5"]   = {"alias": "vc-opus"}   |
+  .agents.defaults.models["vertex-claude/claude-opus-4-6"]   = {"alias": "vc-opus46"}
+' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+```
+
+### 1.5 Done — report to user
+
+After completing all steps above, print this message to the user:
+
+```
+✅ Plugin installed and configured.
+
+Before the plugin can work, you need to complete a few manual steps (see below).
+```
+
+Then present Phase 2.
+
+---
+
+## Phase 2: Manual steps (user must do these)
+
+AI: present the following to the user as a checklist. Do NOT run these commands yourself — they require human interaction or secrets.
+
+### 2.1 GCP authentication (browser required)
+
+```bash
+gcloud auth application-default login
+```
+
+This opens a browser for Google OAuth. You must click "Allow" to grant access.
+
+To verify it worked:
+
+```bash
+gcloud auth application-default print-access-token > /dev/null 2>&1 && echo "OK" || echo "NEED LOGIN"
+```
+
+### 2.2 Enable Claude models in GCP
+
+Go to [Vertex AI Model Garden — Anthropic](https://console.cloud.google.com/vertex-ai/publishers/anthropic) and enable the Claude models you want to use.
+
+### 2.3 Set environment variables and start
+
+Add these to your shell profile (`~/.zshrc` or `~/.bashrc`), then restart:
+
+```bash
+# Required — your GCP project ID
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+
+# Optional — Vertex AI region (default: us-east5)
+# export VERTEX_LOCATION="us-east5"
+
+# Optional — proxy port (default: 18832)
+# export VERTEX_CLAUDE_PORT=18832
+```
+
+After saving, apply and restart the gateway:
+
+```bash
+source ~/.zshrc   # or ~/.bashrc
 openclaw gateway restart
 ```
 
-## Step 6: Verify installation
-
-```bash
-# Check models are registered
-openclaw models list | grep vertex-claude
-
-# Expected output (3+ lines with "yes yes configured"):
-# vertex-claude/claude-sonnet-4-5  text+image 195k  yes  yes  configured
-# vertex-claude/claude-opus-4-5    text+image 195k  yes  yes  configured
-# vertex-claude/claude-opus-4-6    text+image 195k  yes  yes  configured
-
-# Check proxy is running
-curl -s http://127.0.0.1:18832/health
-# Expected: OK
-```
-
-If models show `auth: missing`, run:
+### 2.4 Authenticate the plugin
 
 ```bash
 openclaw auth login vertex-claude
 ```
 
-## Step 7: Test end-to-end (optional)
+### 2.5 Tell the AI you're done
+
+Once all steps above are complete, tell the AI to continue to Phase 3.
+
+---
+
+## Phase 3: Verify (AI executes after user confirms Phase 2)
+
+### 3.1 Check models are registered
+
+```bash
+openclaw models list | grep vertex-claude
+```
+
+Expected: 3+ lines with `yes yes configured`:
+
+```
+vertex-claude/claude-sonnet-4-5  text+image 195k  yes  yes  configured
+vertex-claude/claude-opus-4-5    text+image 195k  yes  yes  configured
+vertex-claude/claude-opus-4-6    text+image 195k  yes  yes  configured
+```
+
+If models show `auth: missing`, tell the user to run `openclaw auth login vertex-claude`.
+
+### 3.2 Check proxy health
+
+```bash
+curl -s http://127.0.0.1:18832/health
+```
+
+Expected: `OK`
+
+### 3.3 End-to-end test (optional)
 
 ```bash
 curl -s http://127.0.0.1:18832/v1/messages \
@@ -140,7 +195,9 @@ curl -s http://127.0.0.1:18832/v1/messages \
   }' | head -c 200
 ```
 
-Expected: A JSON response with `"type": "message"` and a content block.
+Expected: JSON response with `"type": "message"` and a content block.
+
+---
 
 ## Troubleshooting
 
