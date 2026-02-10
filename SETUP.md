@@ -78,7 +78,13 @@ Also make sure you have done these (skip if already done):
 Once the user provides the GCP Project ID (and optionally region), run:
 
 ```bash
-export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>" && export VERTEX_LOCATION="<user-provided-region-or-us-east5>" && openclaw gateway restart && openclaw models auth login --provider vertex-claude
+export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>" && export VERTEX_LOCATION="<user-provided-region-or-us-east5>" && openclaw gateway restart
+```
+
+Then activate the plugin. This command requires a TTY — use `script` to provide one:
+
+```bash
+export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>" && script -q /dev/null openclaw models auth login --provider vertex-claude
 ```
 
 If successful, tell the user:
