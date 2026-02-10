@@ -52,10 +52,10 @@ export VERTEX_LOCATION="us-east5"  # optional, defaults to us-east5
 openclaw gateway restart
 ```
 
-### 4. Authenticate the plugin
+### 4. Activate the plugin
 
 ```bash
-openclaw auth login vertex-claude
+openclaw models auth login --provider vertex-claude
 ```
 
 ### 5. Verify
@@ -145,10 +145,6 @@ Re-authenticate:
 ```bash
 gcloud auth application-default login
 ```
-
-### Models show `auth: missing`
-
-Run `openclaw auth login vertex-claude` to set up credentials.
 
 ### Proxy not starting (port conflict)
 
