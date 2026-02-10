@@ -1,0 +1,56 @@
+{
+  "name": "@fl-penly/vertex-claude",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OpenClaw plugin: use Claude models via Google Cloud Vertex AI",
+  "license": "MIT",
+  "author": "FL-Penly",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FL-Penly/vertex-claude.git"
+  },
+  "homepage": "https://github.com/FL-Penly/vertex-claude#readme",
+  "bugs": {
+    "url": "https://github.com/FL-Penly/vertex-claude/issues"
+  },
+  "keywords": [
+    "openclaw",
+    "claude",
+    "vertex-ai",
+    "google-cloud",
+    "anthropic",
+    "ai",
+    "llm",
+    "plugin"
+  ],
+  "files": [
+    "index.ts",
+    "proxy.ts",
+    "openclaw.plugin.json",
+    "LICENSE",
+    "README.md",
+    "SETUP.md"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "dependencies": {
+    "google-auth-library": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "openclaw": ">=2026.2.2",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

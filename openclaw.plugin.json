@@ -1,0 +1,9 @@
+{
+  "id": "vertex-claude",
+  "providers": ["vertex-claude"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
