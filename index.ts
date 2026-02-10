@@ -116,6 +116,25 @@ const plugin = {
                   },
                 },
               ],
+              configPatch: {
+                models: {
+                  providers: {
+                    "vertex-claude": {
+                      baseUrl,
+                      apiKey: "vertex-proxy-local",
+                      api: "anthropic-messages",
+                      models: CLAUDE_MODELS,
+                    },
+                  },
+                },
+                agents: {
+                  defaults: {
+                    models: Object.fromEntries(
+                      CLAUDE_MODELS.map((m) => ["vertex-claude/" + m.id, {}]),
+                    ),
+                  },
+                },
+              },
               defaultModel: "vertex-claude/claude-sonnet-4-5",
               notes: [
                 "Using GCP project: " + project,
