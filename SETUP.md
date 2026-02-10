@@ -73,16 +73,18 @@ Also make sure you have done these (skip if already done):
 - Enable Claude models at: https://console.cloud.google.com/vertex-ai/publishers/anthropic
 ```
 
-### 1.6 Start the gateway and activate the plugin
+### 1.6 Activate the plugin and restart the gateway
 
-```bash
-export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>" && export VERTEX_LOCATION="<user-provided-region-or-us-east5>" && openclaw gateway restart
-```
-
-Then activate the plugin (one-time only — credentials are persisted after this). This command requires a TTY — use `script` to provide one:
+First, activate the plugin (one-time only — credentials are persisted). This command requires a TTY — use `script` to provide one:
 
 ```bash
 export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>" && script -q /dev/null openclaw models auth login --provider vertex-claude
+```
+
+Then restart the gateway to pick up the new auth profile:
+
+```bash
+export GOOGLE_CLOUD_PROJECT="<user-provided-project-id>" && export VERTEX_LOCATION="<user-provided-region-or-us-east5>" && openclaw gateway restart
 ```
 
 If successful, tell the user:
