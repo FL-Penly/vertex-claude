@@ -1,4 +1,5 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
 import { GoogleAuth } from "google-auth-library";
 
 export interface ProxyLogger {
@@ -44,9 +45,13 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
 
 export async function startProxy(opts: {
   port?: number;
+  secret?: string;
+  allowedModelIds?: Set<string>;
   logger?: ProxyLogger;
 }): Promise<ProxyHandle> {
   const port = opts.port || (Number(process.env.VERTEX_CLAUDE_PORT) || DEFAULT_PORT);
+  const secret = opts.secret ?? process.env.VERTEX_CLAUDE_SECRET ?? randomUUID();
+  const allowedModelIds = opts.allowedModelIds;
   const log = opts.logger || { info: console.log, error: console.error };
 
   const auth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
@@ -79,6 +84,16 @@ export async function startProxy(opts: {
       return;
     }
 
+    // AUTH CHECK — reject requests without the shared secret
+    const authHeader = req.headers["authorization"];
+    const providedKey = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : (req.headers["x-api-key"] as string | undefined);
+    if (providedKey !== secret) {
+      jsonError(res, 401, "Unauthorized");
+      return;
+    }
+
     try {
       const { project, location } = resolveEnv();
       if (!project) {
@@ -101,6 +116,12 @@ export async function startProxy(opts: {
         return;
       }
 
+      // MODEL ALLOWLIST — prevent path traversal into Vertex AI URL
+      if (allowedModelIds && !allowedModelIds.has(modelId)) {
+        jsonError(res, 400, "Model not allowed: " + modelId);
+        return;
+      }
+
       const isStream = body.stream === true;
 
       // Vertex AI requires: model in URL path, anthropic_version in body (not header)
@@ -109,11 +130,22 @@ export async function startProxy(opts: {
         "https://" + location + "-aiplatform.googleapis.com/v1/projects/" + project +
         "/locations/" + location + "/publishers/anthropic/models/" + modelId + ":" + endpoint;
 
+      // EXPLICIT BODY CONSTRUCTION — only forward known-safe fields
       const vertexBody: Record<string, unknown> = {
-        ...body,
         anthropic_version: "vertex-2023-10-16",
+        messages: body.messages,
+        max_tokens: body.max_tokens,
+        ...(body.system !== undefined && { system: body.system }),
+        ...(body.stream !== undefined && { stream: body.stream }),
+        ...(body.temperature !== undefined && { temperature: body.temperature }),
+        ...(body.top_p !== undefined && { top_p: body.top_p }),
+        ...(body.top_k !== undefined && { top_k: body.top_k }),
+        ...(body.stop_sequences !== undefined && { stop_sequences: body.stop_sequences }),
+        ...(body.tools !== undefined && { tools: body.tools }),
+        ...(body.tool_choice !== undefined && { tool_choice: body.tool_choice }),
+        ...(body.metadata !== undefined && { metadata: body.metadata }),
+        ...(body.thinking !== undefined && { thinking: body.thinking }),
       };
-      delete vertexBody.model;
       const vertexPayload = JSON.stringify(vertexBody);
 
       const accessToken = await getAccessToken(1);
@@ -135,10 +167,11 @@ export async function startProxy(opts: {
       } catch (fetchErr) {
         clearTimeout(timeout);
         const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+        log.error("[vertex-claude] Fetch error: " + msg);
         if (msg.includes("aborted")) {
           jsonError(res, 504, "Upstream request to Vertex AI timed out after " + (REQUEST_TIMEOUT_MS / 1000) + "s");
         } else {
-          jsonError(res, 502, "Failed to connect to Vertex AI: " + msg);
+          jsonError(res, 502, "Failed to connect to Vertex AI");
         }
         return;
       }
@@ -181,7 +214,7 @@ export async function startProxy(opts: {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("[vertex-claude] Proxy error: " + msg);
       if (!res.headersSent) {
-        jsonError(res, 500, msg);
+        jsonError(res, 500, "Internal proxy error");
       } else {
         res.end();
       }
